@@ -1,0 +1,30 @@
+{
+  "name": "dynamicbox",
+  "version": "1.0.0",
+  "license": "MIT",
+  "type": "module",
+  "description": "Examples that type themselves into a field, editing only what changed.",
+  "keywords": [
+    "placeholder",
+    "typing",
+    "animation",
+    "input",
+    "examples",
+    "onboarding"
+  ],
+  "main": "./src/dynamicbox.mjs",
+  "exports": {
+    ".": "./src/dynamicbox.mjs"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "demo": "node tools/demo.mjs"
+  }
+}
