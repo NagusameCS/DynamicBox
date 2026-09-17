@@ -298,6 +298,64 @@ test('stopping during a write does not leave a timer running', () => {
   assert.equal(box.stopped, true);
 });
 
+/* ---------- how fast it deletes ---------- */
+
+/**
+ * One deletion run: how many characters, and how long it took to get them out.
+ *
+ * "Way too fast" is a complaint that only ever arrives after the fact, so the pace is
+ * measured rather than watched. The field's change events carry the clock's time, so the
+ * run can be read straight off them.
+ */
+function deletionRun(from, to) {
+  const el = field();
+  const clocked = clock();
+  const marks = [];
+  const box = new TypeBox({
+    el,
+    examples: [from, to],
+    timers: clocked,
+    onChange: (text) => marks.push({ text, at: clocked.now() }),
+    ...steady,
+  });
+  box.start();
+
+  // Step until the field has stopped shrinking and started growing again: one deletion,
+  // the beat after it, and the first character of what comes next.
+  let guard = 0;
+  let shrank = false;
+  while (guard++ < 20000) {
+    if (clocked.run(Infinity, 1) === 0) break;
+    const last = marks[marks.length - 1];
+    const before = marks[marks.length - 2];
+    if (!last || !before) continue;
+    if (last.text.length < before.text.length) shrank = true;
+    else if (shrank && last.text.length > before.text.length) break;
+  }
+
+  const typed = marks.findIndex((mark) => mark.text === from);
+  const run = [];
+  for (let i = typed + 1; i < marks.length; i += 1) {
+    if (marks[i].text.length < marks[i - 1].text.length) run.push(marks[i]);
+    else break;
+  }
+  // From the first character out to the last, which leaves out the hold before the run
+  // started -- that hold is the pause on a finished example, not deleting.
+  const duration = run.length > 1 ? run[run.length - 1].at - run[0].at : 0;
+  return { chars: run.length, duration, perChar: run.length > 1 ? Math.round(duration / run.length) : 0 };
+}
+
+test('deleting is slow enough to read, and bounded rather than dragging', () => {
+  const correction = deletionRun('where do we use greedy?', 'where do we use levenshtein?');
+  assert.equal(correction.chars, 7);
+  assert.ok(correction.perChar >= 55, JSON.stringify(correction));
+
+  const rewrite = deletionRun('where do we use dynamic programming?', 'how is an inbound email verified?');
+  assert.equal(rewrite.chars, 36);
+  assert.ok(rewrite.perChar >= 35, JSON.stringify(rewrite));
+  assert.ok(rewrite.duration <= 1800, JSON.stringify(rewrite));
+});
+
 /* ---------- the module's own contract ---------- */
 
 test('the module can be pasted inside a template literal', () => {

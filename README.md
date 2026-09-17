@@ -82,9 +82,10 @@ pause. That beat is the whole effect: without it the shared stem is a flicker.
 | `examples` | `[]` | What to play. Repeats are dropped, order does not matter. |
 | `script` | — | A packed script instead of examples. Roughly a third of the cost. |
 | `mode` | `'placeholder'` | Also `'value'` and `'text'`. Do not use `'value'` on a form field. |
-| `typeMs`, `delMs` | `46`, `26` | Per character. |
+| `typeMs`, `delMs` | `52`, `85` | Per character. Deleting is deliberately unhurried. |
+| `delBudgetMs`, `delPerCharBudgetMs` | `320`, `45` | What one deletion run may take in total, so a long one does not drag. |
 | `holdMs`, `lastHoldMs` | `2000`, `2400` | Sitting on a finished example, plus 18 ms per character. |
-| `afterDeleteMs` | `260` | The beat, plus 24 ms per character deleted, capped at 900. |
+| `afterDeleteMs` | `260` | The beat, plus 24 ms per character deleted, capped at 700. |
 | `jitter` | `0.35` | Unevenness. Set `0` with a fixed `random` to make tests exact. |
 | `random`, `timers` | `Math.random`, real timers | Injectable, so playback can be tested against a virtual clock. |
 | `stopOnInput` | `true` | Stop for good on focus, pointer, key or input. |

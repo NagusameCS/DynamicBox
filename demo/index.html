@@ -349,15 +349,20 @@ export class TypeBox {
     this.#el = options.el;
     this.#mode = options.mode || 'placeholder';
     this.#options = {
-      typeMs: options.typeMs == null ? 46 : options.typeMs,
-      delMs: options.delMs == null ? 26 : options.delMs,
+      typeMs: options.typeMs == null ? 52 : options.typeMs,
+      // Deleting used to run at 26ms a character, which is fast enough that the words
+      // never register on the way out: the line appeared to be blanked rather than
+      // reconsidered. These are the numbers that make a correction look like one.
+      delMs: options.delMs == null ? 85 : options.delMs,
+      delBudgetMs: options.delBudgetMs == null ? 320 : options.delBudgetMs,
+      delPerCharBudgetMs: options.delPerCharBudgetMs == null ? 45 : options.delPerCharBudgetMs,
       holdMs: options.holdMs == null ? 2000 : options.holdMs,
       lastHoldMs: options.lastHoldMs == null ? 2400 : options.lastHoldMs,
       holdPerCharMs: options.holdPerCharMs == null ? 18 : options.holdPerCharMs,
       holdCapMs: options.holdCapMs == null ? 3400 : options.holdCapMs,
       afterDeleteMs: options.afterDeleteMs == null ? 260 : options.afterDeleteMs,
       afterDeletePerCharMs: options.afterDeletePerCharMs == null ? 24 : options.afterDeletePerCharMs,
-      afterDeleteCapMs: options.afterDeleteCapMs == null ? 900 : options.afterDeleteCapMs,
+      afterDeleteCapMs: options.afterDeleteCapMs == null ? 700 : options.afterDeleteCapMs,
       jitter: options.jitter == null ? 0.35 : options.jitter,
       random: options.random || Math.random,
       timers: options.timers || defaultTimers(),
@@ -519,10 +524,18 @@ export class TypeBox {
   /**
    * Delete characters off the end, quickening slightly as it goes.
    *
-   * The pace matters more than it looks: a constant rate reads as a machine
-   * emptying a buffer, while a rate that starts slow and speeds up reads as someone
-   * changing their mind about a word. The beat afterwards is placed here rather than
-   * before the typing, so the half-finished line is what gets the pause.
+   * A deletion has a time budget and a pace, and the pace is whichever of the two is
+   * slower: never faster than delMs per character, never longer than the budget for the
+   * whole run. The first rule keeps a two-character correction feeling like a
+   * correction. The second stops a thirty-character run from standing there emptying
+   * itself for three seconds, which is what a single rate would do at this pace.
+   *
+   * The pace matters more than it looks. The old numbers ran at 26ms a character, fast
+   * enough to read as a buffer being cleared rather than as someone changing their mind
+   * about a word, and the words were gone before they registered. Quickening across the
+   * run is the rest of it: the first character out is the slowest, and the last is the
+   * quickest. The beat afterwards is placed here rather than before the typing, so the
+   * half-finished line is what gets the pause.
    */
   #remove(left, total, done) {
     if (this.#stopped || this.#paused) return;
@@ -542,9 +555,15 @@ export class TypeBox {
       this.#timer = this.#timers().setTimeout(done, this.#jitter(beat));
       return;
     }
+    const pace = Math.min(this.#options.delMs, this.#deleteBudget(total) / total);
     const progress = 1 - remaining / total;
-    const ms = Math.max(12, this.#options.delMs * (1 - 0.45 * progress));
+    const ms = Math.max(1, pace * (1 - 0.25 * progress));
     this.#timer = this.#timers().setTimeout(() => this.#remove(remaining, total, done), this.#jitter(ms));
+  }
+
+  /** What a run of this length is allowed to take in total, in milliseconds. */
+  #deleteBudget(total) {
+    return this.#options.delBudgetMs + this.#options.delPerCharBudgetMs * total;
   }
 
   /** Type characters on, one at a time. */
